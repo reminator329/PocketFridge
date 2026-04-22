@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "700757427001",
+    "project_id": "pocketfridge-392",
+    "storage_bucket": "pocketfridge-392.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:700757427001:android:eff04308f99b0bda351ee8",
+        "android_client_info": {
+          "package_name": "fr.remipocket.pocket_fridge"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "700757427001-0jgo50u7iaminak37hgcgo1tt42ualfb.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "fr.remipocket.pocket_fridge",
+            "certificate_hash": "4b5cedb299372dea8361ec6f5f5784a1cb3fe83f"
+          }
+        },
+        {
+          "client_id": "700757427001-9vklimcmpq0d4pl7kg3kk93tll5pjkja.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyATUBXiDlbYsMSGiBXJ5Q1d5vVsjXowWYM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "700757427001-9vklimcmpq0d4pl7kg3kk93tll5pjkja.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "700757427001-qdkse1u4q30te6q2nv2g1tbumroqucca.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "fr.remipocket.pocketFridge"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
