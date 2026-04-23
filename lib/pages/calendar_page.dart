@@ -113,7 +113,7 @@ class _CalendarPageState extends State<CalendarPage> {
           ),
         ),
 
-        const SizedBox(height: 8),
+        const Divider(),
 
         /// 📋 LISTE DES ALIMENTS DU JOUR
         Expanded(
