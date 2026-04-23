@@ -75,8 +75,8 @@ class _MyMaterialPageState extends State<MyMaterialPage> {
             label: "Calendrier",
           ),
           NavigationDestination(
-            icon: Icon(Icons.snowing),
-            selectedIcon: Icon(Icons.snowing),
+            icon: Icon(Icons.kitchen_outlined),
+            selectedIcon: Icon(Icons.kitchen),
             label: "Frigos",
           ),
           NavigationDestination(

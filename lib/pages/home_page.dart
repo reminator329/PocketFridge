@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../model/datamodel.dart';
 
 class HomePage extends StatefulWidget {
@@ -13,7 +14,10 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   List<FoodItem> _urgentFoods = [];
   List<FoodItem> _freshFoods = [];
+  Map<String, String> _fridgeNames = {};
   bool _loading = true;
+
+  static const String _prefsKey = 'selected_fridge_ids';
 
   @override
   void initState() {
@@ -24,20 +28,45 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadFoods() async {
     final userId = FirebaseAuth.instance.currentUser!.uid;
 
+    // 1. Récupère tous les frigos accessibles
     final fridgeSnapshot = await FirebaseFirestore.instance
         .collection('fridge_users')
         .where('userId', isEqualTo: userId)
         .get();
 
-    final fridgeIds = fridgeSnapshot.docs
+    final allFridgeIds = fridgeSnapshot.docs
         .map((d) => d['fridgeId'] as String)
         .toList();
+
+    if (allFridgeIds.isEmpty) {
+      setState(() => _loading = false);
+      return;
+    }
+
+    // 2. Filtre selon la sélection dans SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getStringList(_prefsKey);
+    final fridgeIds = (saved == null || saved.isEmpty)
+        ? allFridgeIds
+        : saved.where((id) => allFridgeIds.contains(id)).toList();
 
     if (fridgeIds.isEmpty) {
       setState(() => _loading = false);
       return;
     }
 
+    // 3. Charge les noms des frigos
+    final fridgesSnapshot = await FirebaseFirestore.instance
+        .collection('fridges')
+        .where('id', whereIn: fridgeIds)
+        .get();
+
+    final fridgeNames = {
+      for (var doc in fridgesSnapshot.docs)
+        doc['id'] as String: doc['name'] as String
+    };
+
+    // 4. Récupère les aliments des frigos sélectionnés
     final foodSnapshot = await FirebaseFirestore.instance
         .collection('food_items')
         .where('fridgeId', whereIn: fridgeIds)
@@ -60,6 +89,8 @@ class _HomePageState extends State<HomePage> {
       ..sort((a, b) => a.expirationDate!.compareTo(b.expirationDate!));
 
     setState(() {
+      _fridgeNames = fridgeNames;
+
       _urgentFoods = items.where((item) {
         final daysLeft = item.expirationDate!.difference(DateTime.now()).inDays;
         return daysLeft <= 2;
@@ -93,6 +124,7 @@ class _HomePageState extends State<HomePage> {
     final color = _expirationColor(item.expirationDate!);
     final label = _expirationLabel(item.expirationDate!);
     final exp = item.expirationDate!;
+    final fridgeName = _fridgeNames[item.fridgeId] ?? '';
 
     return Card(
       elevation: 3,
@@ -131,6 +163,26 @@ class _HomePageState extends State<HomePage> {
                 color: theme.colorScheme.onSurface.withOpacity(0.6),
               ),
             ),
+            if (fridgeName.isNotEmpty)
+              Row(
+                children: [
+                  Icon(Icons.kitchen,
+                      size: 11,
+                      color: theme.colorScheme.onSurface.withOpacity(0.4)),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      fridgeName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: theme.colorScheme.onSurface.withOpacity(0.4),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
