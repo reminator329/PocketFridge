@@ -23,9 +23,9 @@ class _MyMaterialPageState extends State<MyMaterialPage> {
   Widget build(BuildContext context) {
     var theme = Theme.of(context);
 
-    final backgroundScaffold = theme.colorScheme.primaryContainer;
-    final backgroundAppBar = theme.colorScheme.primary;
-    final colorAppBar = theme.colorScheme.onPrimary;
+    final backgroundAppBar = theme.colorScheme.secondaryContainer;
+    final colorAppBar = theme.colorScheme.secondary;
+    final backgroundScaffold = theme.colorScheme.surface;
 
     Widget page;
     switch (_currentIndex) {
@@ -63,7 +63,7 @@ class _MyMaterialPageState extends State<MyMaterialPage> {
             _currentIndex = index;
           });
         },
-        destinations: const [
+        destinations: [
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home),

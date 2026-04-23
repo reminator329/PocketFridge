@@ -125,6 +125,7 @@ class _FridgePageState extends State<FridgePage> {
     final backgroundCardColor = theme.colorScheme.secondaryContainer;
     final cardColor = theme.colorScheme.secondary;
 
+
     return StreamBuilder(
       stream: FirebaseFirestore.instance
           .collection('fridge_users')
@@ -172,13 +173,11 @@ class _FridgePageState extends State<FridgePage> {
 
                       return Card(
                         elevation: 6,
-                        color: backgroundCardColor,
                         child: Column(
                           children: [
                             ListTile(
                               title: Text(
                                 fridge.name,
-                                style: TextStyle(color: cardColor),
                               ),
                               subtitle: const Text("Frigo partagé"),
                               trailing: Row(
