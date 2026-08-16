@@ -1,30 +1,38 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:pocket_fridge/main.dart';
+import 'package:pocket_fridge/widgets/scanner/detection_status_card.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('DetectionStatusCard affiche correctement les états de détection',
+      (WidgetTester tester) async {
+    bool confirmed = false;
+    bool manualEntry = false;
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: DetectionStatusCard(
+            productName: "Lait demi-écrémé",
+            isSearchingName: false,
+            expirationDate: DateTime(2026, 12, 25),
+            onConfirm: () => confirmed = true,
+            onManualEntry: () => manualEntry = true,
+          ),
+        ),
+      ),
+    );
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    // Vérifie la présence du nom du produit
+    expect(find.text("Lait demi-écrémé"), findsOneWidget);
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Vérifie le formatage de la date
+    expect(find.text("25/12/2026"), findsOneWidget);
+
+    // Vérifie le statut complet
+    expect(find.text("Informations détectées !"), findsOneWidget);
+
+    // Teste le tap sur le bouton Valider
+    await tester.tap(find.text("Valider"));
+    expect(confirmed, isTrue);
   });
 }

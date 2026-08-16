@@ -53,6 +53,9 @@ class FoodItem extends FirestoreSerializable<FoodItem> {
   @override
   List<Widget> buildFormFields(Map<String, dynamic> formData) {
     formData['fridgeId'] = fridgeId;
+    if (expirationDate != null) {
+      formData['expirationDate'] = Timestamp.fromDate(expirationDate!);
+    }
     return [
       TextFormField(
         initialValue: name,

@@ -88,6 +88,8 @@ class _HomePageState extends State<HomePage> {
         .toList()
       ..sort((a, b) => a.expirationDate!.compareTo(b.expirationDate!));
 
+    if (!mounted) return;
+
     setState(() {
       _fridgeNames = fridgeNames;
 

@@ -9,6 +9,7 @@ import 'package:pocket_fridge/pages/user_page.dart';
 import 'forms/CreateObjectForm.dart';
 import 'model/datamodel.dart';
 import 'pages/home_page.dart';
+import 'pages/product_scanner_page.dart';
 
 class MyMaterialPage extends StatefulWidget {
   const MyMaterialPage({super.key});
@@ -19,6 +20,29 @@ class MyMaterialPage extends StatefulWidget {
 
 class _MyMaterialPageState extends State<MyMaterialPage> {
   int _currentIndex = 0;
+
+  Future<void> _openScanner({String? fridgeId}) async {
+    final result = await Navigator.push<ScannedItemResult>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ProductScannerPage(targetFridgeId: fridgeId),
+      ),
+    );
+
+    if (!mounted || result == null) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => CreateObjectForm(
+        objectInstance: FoodItem(
+          id: "",
+          name: result.name ?? "",
+          fridgeId: fridgeId ?? "",
+          expirationDate: result.expirationDate,
+        ),
+      ),
+    );
+  }
 
   void _showAddFoodDialog(BuildContext context) {
     showDialog(
@@ -103,8 +127,13 @@ class _MyMaterialPageState extends State<MyMaterialPage> {
         spacing: 12,
         children: [
           SpeedDialChild(
+            child: const Icon(Icons.qr_code_scanner),
+            label: "Scanner un aliment (Caméra)",
+            onTap: () => _openScanner(),
+          ),
+          SpeedDialChild(
             child: const Icon(Icons.fastfood),
-            label: "Nouvel aliment",
+            label: "Nouvel aliment (Manuel)",
             onTap: () => _showAddFoodDialog(context),
           ),
           SpeedDialChild(

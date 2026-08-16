@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../forms/CreateObjectForm.dart';
 import '../model/datamodel.dart';
+import 'product_scanner_page.dart';
 
 void _showShareDialog(BuildContext context, String fridgeId) {
   final emailController = TextEditingController();
@@ -409,9 +410,41 @@ class _FridgePageState extends State<FridgePage> {
                                 secondary: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
+                                    // Scanner par caméra
+                                    IconButton(
+                                      tooltip: "Scanner un aliment (Caméra)",
+                                      onPressed: () async {
+                                        final result =
+                                            await Navigator.push<ScannedItemResult>(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                ProductScannerPage(
+                                              targetFridgeId: fridge.id,
+                                            ),
+                                          ),
+                                        );
+                                        if (result != null && context.mounted) {
+                                          showDialog(
+                                            context: context,
+                                            builder: (context) =>
+                                                CreateObjectForm(
+                                              objectInstance: FoodItem(
+                                                id: "",
+                                                name: result.name ?? "",
+                                                fridgeId: fridge.id,
+                                                expirationDate:
+                                                    result.expirationDate,
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      },
+                                      icon: const Icon(Icons.qr_code_scanner),
+                                    ),
                                     // + Aliment directement dans la carte
                                     IconButton(
-                                      tooltip: "Ajouter un aliment",
+                                      tooltip: "Ajouter manuellement",
                                       onPressed: () {
                                         showDialog(
                                           context: context,

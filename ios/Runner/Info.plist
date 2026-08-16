@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <key>NSCameraUsageDescription</key>
+    <string>Pocket Fridge a besoin d'accéder à la caméra pour scanner les codes-barres et les dates de péremption de vos aliments.</string>
     <key>GIDClientID</key>
     <string>700757427001-qdkse1u4q30te6q2nv2g1tbumroqucca.apps.googleusercontent.com</string>
     
