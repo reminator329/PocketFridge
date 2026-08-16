@@ -32,7 +32,6 @@ class _CalendarPageState extends State<CalendarPage> {
   Future<void> _loadFoods() async {
     final userId = FirebaseAuth.instance.currentUser!.uid;
 
-    // 1. Récupère tous les frigos accessibles
     final fridgeSnapshot = await FirebaseFirestore.instance
         .collection('fridge_users')
         .where('userId', isEqualTo: userId)
@@ -47,7 +46,6 @@ class _CalendarPageState extends State<CalendarPage> {
       return;
     }
 
-    // 2. Filtre selon la sélection dans SharedPreferences
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getStringList(_prefsKey);
     final fridgeIds = (saved == null || saved.isEmpty)
@@ -59,7 +57,6 @@ class _CalendarPageState extends State<CalendarPage> {
       return;
     }
 
-    // 3. Charge les noms des frigos
     final fridgesSnapshot = await FirebaseFirestore.instance
         .collection('fridges')
         .where('id', whereIn: fridgeIds)
@@ -70,7 +67,6 @@ class _CalendarPageState extends State<CalendarPage> {
         doc['id'] as String: doc['name'] as String
     };
 
-    // 4. Récupère les aliments des frigos sélectionnés
     final foodSnapshot = await FirebaseFirestore.instance
         .collection('food_items')
         .where('fridgeId', whereIn: fridgeIds)
@@ -113,91 +109,106 @@ class _CalendarPageState extends State<CalendarPage> {
     return Colors.green;
   }
 
-  String _expirationLabel(DateTime expiration) {
-    final daysLeft = expiration.difference(DateTime.now()).inDays;
-    if (daysLeft < 0) return "Périmé !";
-    if (daysLeft == 0) return "Expire aujourd'hui";
-    if (daysLeft == 1) return "Expire demain";
-    return "Dans $daysLeft jours";
+  Future<void> _deleteItem(FoodItem item) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Supprimer"),
+        content: Text("Supprimer \"${item.name}\" ?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Annuler"),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("Supprimer"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    await FirebaseFirestore.instance
+        .collection('food_items')
+        .doc(item.id)
+        .delete();
+
+    _loadFoods();
   }
 
-  Widget _buildCard(FoodItem item, ThemeData theme) {
-    final color = _expirationColor(item.expirationDate!);
-    final label = _expirationLabel(item.expirationDate!);
-    final exp = item.expirationDate!;
-    final fridgeName = _fridgeNames[item.fridgeId] ?? '';
+  Future<void> _editItem(FoodItem item) async {
+    final nameController = TextEditingController(text: item.name);
+    DateTime? selectedDate = item.expirationDate;
 
-    return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: color.withOpacity(0.4), width: 2),
-      ),
-      child: Container(
-        width: 160,
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.12),
-                shape: BoxShape.circle,
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text("Modifier l'aliment"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: "Nom"),
               ),
-              child: Icon(Icons.fastfood, color: color, size: 32),
-            ),
-            Text(
-              item.name,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            Text(
-              "${exp.day.toString().padLeft(2, '0')}/"
-                  "${exp.month.toString().padLeft(2, '0')}/"
-                  "${exp.year}",
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.6),
-              ),
-            ),
-            if (fridgeName.isNotEmpty)
+              const SizedBox(height: 16),
               Row(
                 children: [
-                  Icon(Icons.kitchen,
-                      size: 11,
-                      color: theme.colorScheme.onSurface.withOpacity(0.4)),
-                  const SizedBox(width: 4),
                   Expanded(
                     child: Text(
-                      fridgeName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: theme.colorScheme.onSurface.withOpacity(0.4),
-                      ),
+                      selectedDate == null
+                          ? "Aucune date"
+                          : "Expire le ${selectedDate!.day.toString().padLeft(2, '0')}/"
+                          "${selectedDate!.month.toString().padLeft(2, '0')}/"
+                          "${selectedDate!.year}",
+                      style: const TextStyle(fontSize: 14),
                     ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: selectedDate ?? DateTime.now(),
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime(2100),
+                      );
+                      if (picked != null) {
+                        setDialogState(() => selectedDate = picked);
+                      }
+                    },
+                    icon: const Icon(Icons.calendar_today, size: 16),
+                    label: const Text("Changer"),
                   ),
                 ],
               ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: color,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
-                ),
-              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Annuler"),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                await FirebaseFirestore.instance
+                    .collection('food_items')
+                    .doc(item.id)
+                    .update({
+                  'name': nameController.text.trim(),
+                  if (selectedDate != null)
+                    'expirationDate': Timestamp.fromDate(selectedDate!),
+                });
+                Navigator.pop(context);
+                _loadFoods();
+              },
+              child: const Text("Enregistrer"),
             ),
           ],
         ),
@@ -245,16 +256,61 @@ class _CalendarPageState extends State<CalendarPage> {
                 );
               }
 
-              return SizedBox(
-                height: 220,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: foods.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 14),
-                  itemBuilder: (context, index) =>
-                      _buildCard(foods[index], theme),
-                ),
+              return ListView.builder(
+                itemCount: foods.length,
+                itemBuilder: (context, index) {
+                  final item = foods[index];
+                  final color = _expirationColor(item.expirationDate!);
+                  final fridgeName = _fridgeNames[item.fridgeId] ?? '';
+
+                  return ListTile(
+                    leading: Icon(Icons.fastfood, color: color),
+                    title: Text(item.name),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Expire le ${item.expirationDate!.day.toString().padLeft(2, '0')}/"
+                              "${item.expirationDate!.month.toString().padLeft(2, '0')}/"
+                              "${item.expirationDate!.year}",
+                        ),
+                        if (fridgeName.isNotEmpty)
+                          Row(
+                            children: [
+                              Icon(Icons.kitchen,
+                                  size: 11,
+                                  color: theme.colorScheme.onSurface
+                                      .withOpacity(0.4)),
+                              const SizedBox(width: 4),
+                              Text(
+                                fridgeName,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: theme.colorScheme.onSurface
+                                      .withOpacity(0.4),
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit_outlined),
+                          color: theme.colorScheme.primary,
+                          onPressed: () => _editItem(item),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          color: Colors.red,
+                          onPressed: () => _deleteItem(item),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               );
             },
           ),

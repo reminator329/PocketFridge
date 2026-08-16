@@ -40,14 +40,12 @@ void _showShareDialog(BuildContext context, String fridgeId) {
               final email = emailController.text.trim();
               await FirebaseFirestore.instance
                   .collection('fridge_users')
-                  .add(
-                    FridgeUser(
-                      id: '',
-                      fridgeId: fridgeId,
-                      userId: email,
-                      role: 'member',
-                    ).toMap(),
-                  );
+                  .add(FridgeUser(
+                id: '',
+                fridgeId: fridgeId,
+                userId: email,
+                role: 'member',
+              ).toMap());
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text("Invitation envoyée")),
@@ -61,13 +59,126 @@ void _showShareDialog(BuildContext context, String fridgeId) {
   );
 }
 
+Future<void> _deleteItem(BuildContext context, FoodItem item) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text("Supprimer"),
+      content: Text("Supprimer \"${item.name}\" ?"),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text("Annuler"),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red,
+            foregroundColor: Colors.white,
+          ),
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text("Supprimer"),
+        ),
+      ],
+    ),
+  );
+
+  if (confirmed != true) return;
+
+  await FirebaseFirestore.instance
+      .collection('food_items')
+      .doc(item.id)
+      .delete();
+}
+
+Future<void> _editItem(BuildContext context, FoodItem item) async {
+  final nameController = TextEditingController(text: item.name);
+  DateTime? selectedDate = item.expirationDate;
+
+  await showDialog(
+    context: context,
+    builder: (context) => StatefulBuilder(
+      builder: (context, setDialogState) => AlertDialog(
+        title: const Text("Modifier l'aliment"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(labelText: "Nom"),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    selectedDate == null
+                        ? "Aucune date"
+                        : "Expire le ${selectedDate!.day.toString().padLeft(2, '0')}/"
+                        "${selectedDate!.month.toString().padLeft(2, '0')}/"
+                        "${selectedDate!.year}",
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: selectedDate ?? DateTime.now(),
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2100),
+                    );
+                    if (picked != null) {
+                      setDialogState(() => selectedDate = picked);
+                    }
+                  },
+                  icon: const Icon(Icons.calendar_today, size: 16),
+                  label: const Text("Changer"),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Annuler"),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await FirebaseFirestore.instance
+                  .collection('food_items')
+                  .doc(item.id)
+                  .update({
+                'name': nameController.text.trim(),
+                if (selectedDate != null)
+                  'expirationDate': Timestamp.fromDate(selectedDate!),
+              });
+              Navigator.pop(context);
+            },
+            child: const Text("Enregistrer"),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 class _FridgeItemsList extends StatelessWidget {
   final String fridgeId;
 
   const _FridgeItemsList({required this.fridgeId});
 
+  Color _expirationColor(DateTime expiration) {
+    final daysLeft = expiration.difference(DateTime.now()).inDays;
+    if (daysLeft < 0) return Colors.red;
+    if (daysLeft <= 2) return Colors.orange;
+    return Colors.green;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return StreamBuilder(
       stream: FirebaseFirestore.instance
           .collection('food_items')
@@ -77,17 +188,58 @@ class _FridgeItemsList extends StatelessWidget {
         if (snapshot.hasError) return Text("Erreur ${snapshot.error}");
         if (!snapshot.hasData) return const CircularProgressIndicator();
 
-        final items = snapshot.data!.docs
-            .map((doc) => FoodItem.fromMap(doc.data()))
-            .toList();
+        final items = snapshot.data!.docs.map((doc) {
+          final data = doc.data();
+          return FoodItem(
+            id: doc.id,
+            name: data['name'] ?? '',
+            fridgeId: data['fridgeId'] ?? '',
+            expirationDate: data['expirationDate'] != null
+                ? (data['expirationDate'] as Timestamp).toDate()
+                : null,
+          );
+        }).toList();
 
-        if (items.isEmpty) return const Text("Aucun aliment");
+        if (items.isEmpty) return const Padding(
+          padding: EdgeInsets.all(12),
+          child: Text("Aucun aliment"),
+        );
 
         return Column(
           children: [
             for (final item in items) ...[
               const Divider(),
-              item.buildListTile(context),
+              ListTile(
+                leading: Icon(
+                  Icons.fastfood,
+                  color: item.expirationDate != null
+                      ? _expirationColor(item.expirationDate!)
+                      : Colors.grey,
+                ),
+                title: Text(item.name),
+                subtitle: item.expirationDate != null
+                    ? Text(
+                  "Expire le ${item.expirationDate!.day.toString().padLeft(2, '0')}/"
+                      "${item.expirationDate!.month.toString().padLeft(2, '0')}/"
+                      "${item.expirationDate!.year}",
+                )
+                    : null,
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit_outlined),
+                      color: theme.colorScheme.primary,
+                      onPressed: () => _editItem(context, item),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline),
+                      color: Colors.red,
+                      onPressed: () => _deleteItem(context, item),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ],
         );
@@ -132,9 +284,13 @@ class _FridgePageState extends State<FridgePage> {
     await prefs.setStringList(_prefsKey, _selectedFridgeIds.toList());
   }
 
-  static Future<List<String>> loadSelectedFridgeIds() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getStringList(_prefsKey) ?? [];
+  void _showCreateFridgeDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => CreateObjectForm(
+        objectInstance: Fridge(id: "", name: ""),
+      ),
+    );
   }
 
   @override
@@ -156,7 +312,6 @@ class _FridgePageState extends State<FridgePage> {
             .map((doc) => doc['fridgeId'] as String)
             .toList();
 
-        // Initialise la sélection avec tous les IDs si premier lancement
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _initSelectionIfNeeded(fridgeIds);
         });
@@ -164,19 +319,20 @@ class _FridgePageState extends State<FridgePage> {
         final selectedCount = _selectedFridgeIds.length;
         final totalCount = fridgeIds.length;
 
-        return Stack(
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (fridgeIds.isEmpty)
-              const Center(child: Text("Aucun frigo"))
-            else
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            // Bandeau info + bouton nouveau frigo
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
+              child: Row(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                  Expanded(
                     child: Text(
-                      selectedCount == totalCount
-                          ? "Tous les frigos sont affichés dans les autres onglets"
+                      totalCount == 0
+                          ? "Aucun frigo"
+                          : selectedCount == totalCount
+                          ? "Tous les frigos sont affichés"
                           : "$selectedCount / $totalCount frigo(s) sélectionné(s)",
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurface.withOpacity(0.6),
@@ -184,141 +340,132 @@ class _FridgePageState extends State<FridgePage> {
                       ),
                     ),
                   ),
-                  Expanded(
-                    child: StreamBuilder(
-                      stream: FirebaseFirestore.instance
-                          .collection('fridges')
-                          .where('id', whereIn: fridgeIds)
-                          .snapshots(),
-                      builder: (context, fridgeSnapshot) {
-                        if (!fridgeSnapshot.hasData) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        }
-
-                        final fridges = fridgeSnapshot.data!.docs;
-
-                        return ListView.builder(
-                          itemCount: fridges.length,
-                          itemBuilder: (context, index) {
-                            final fridge = Fridge.fromMap(
-                              fridges[index].data(),
-                            );
-                            final isExpanded = expandedIndex == index;
-                            final isSelected = _selectedFridgeIds.contains(
-                              fridge.id,
-                            );
-
-                            return Card(
-                              elevation: 6,
-                              child: Column(
-                                children: [
-                                  CheckboxListTile(
-                                    controlAffinity:
-                                        ListTileControlAffinity.leading,
-                                    value: isSelected,
-                                    onChanged: (_) => _toggleFridge(fridge.id),
-                                    title: Text(
-                                      fridge.name,
-                                      style: TextStyle(
-                                        color: isSelected
-                                            ? null
-                                            : theme.colorScheme.onSurface
-                                                  .withOpacity(0.4),
-                                      ),
-                                    ),
-                                    subtitle: Text(
-                                      isSelected
-                                          ? "Affiché dans les autres onglets"
-                                          : "Masqué dans les autres onglets",
-                                      style: TextStyle(
-                                        color: isSelected
-                                            ? theme.colorScheme.primary
-                                            : theme.colorScheme.onSurface
-                                                  .withOpacity(0.4),
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                    secondary: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        IconButton(
-                                          onPressed: () {
-                                            showDialog(
-                                              context: context,
-                                              builder: (context) =>
-                                                  CreateObjectForm(
-                                                    objectInstance: FoodItem(
-                                                      id: "",
-                                                      name: "",
-                                                      fridgeId: fridge.id,
-                                                      expirationDate: null,
-                                                    ),
-                                                  ),
-                                            );
-                                          },
-                                          icon: const Icon(Icons.add),
-                                        ),
-                                        IconButton(
-                                          onPressed: () => _showShareDialog(
-                                            context,
-                                            fridge.id,
-                                          ),
-                                          icon: const Icon(Icons.share),
-                                        ),
-                                        IconButton(
-                                          onPressed: () {
-                                            setState(() {
-                                              expandedIndex = isExpanded
-                                                  ? null
-                                                  : index;
-                                            });
-                                          },
-                                          icon: Icon(
-                                            isExpanded
-                                                ? Icons.expand_less
-                                                : Icons.expand_more,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  if (isExpanded)
-                                    Padding(
-                                      padding: const EdgeInsets.only(
-                                        bottom: 10,
-                                      ),
-                                      child: _FridgeItemsList(
-                                        fridgeId: fridge.id,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            );
-                          },
-                        );
-                      },
-                    ),
+                  TextButton.icon(
+                    onPressed: _showCreateFridgeDialog,
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text("Nouveau frigo"),
                   ),
                 ],
               ),
-
-            Positioned(
-              bottom: 20,
-              right: 20,
-              child: FloatingActionButton(
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => CreateObjectForm(
-                      objectInstance: Fridge(id: "", name: ""),
-                    ),
-                  );
-                },
-                child: const Icon(Icons.add),
-              ),
             ),
+
+            const Divider(height: 1),
+
+            // Liste des frigos
+            if (fridgeIds.isEmpty)
+              const Expanded(child: Center(child: Text("Aucun frigo")))
+            else
+              Expanded(
+                child: StreamBuilder(
+                  stream: FirebaseFirestore.instance
+                      .collection('fridges')
+                      .where('id', whereIn: fridgeIds)
+                      .snapshots(),
+                  builder: (context, fridgeSnapshot) {
+                    if (!fridgeSnapshot.hasData) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    final fridges = fridgeSnapshot.data!.docs;
+
+                    return ListView.builder(
+                      itemCount: fridges.length,
+                      itemBuilder: (context, index) {
+                        final fridge = Fridge.fromMap(fridges[index].data());
+                        final isExpanded = expandedIndex == index;
+                        final isSelected =
+                        _selectedFridgeIds.contains(fridge.id);
+
+                        return Card(
+                          elevation: 6,
+                          child: Column(
+                            children: [
+                              CheckboxListTile(
+                                controlAffinity:
+                                ListTileControlAffinity.leading,
+                                value: isSelected,
+                                onChanged: (_) => _toggleFridge(fridge.id),
+                                title: Text(
+                                  fridge.name,
+                                  style: TextStyle(
+                                    color: isSelected
+                                        ? null
+                                        : theme.colorScheme.onSurface
+                                        .withOpacity(0.4),
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  isSelected
+                                      ? "Affiché dans les autres onglets"
+                                      : "Masqué dans les autres onglets",
+                                  style: TextStyle(
+                                    color: isSelected
+                                        ? theme.colorScheme.primary
+                                        : theme.colorScheme.onSurface
+                                        .withOpacity(0.4),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                secondary: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    // + Aliment directement dans la carte
+                                    IconButton(
+                                      tooltip: "Ajouter un aliment",
+                                      onPressed: () {
+                                        showDialog(
+                                          context: context,
+                                          builder: (context) =>
+                                              CreateObjectForm(
+                                                objectInstance: FoodItem(
+                                                  id: "",
+                                                  name: "",
+                                                  fridgeId: fridge.id,
+                                                  expirationDate: null,
+                                                ),
+                                              ),
+                                        );
+                                      },
+                                      icon: const Icon(Icons.add),
+                                    ),
+                                    IconButton(
+                                      tooltip: "Partager",
+                                      onPressed: () =>
+                                          _showShareDialog(context, fridge.id),
+                                      icon: const Icon(Icons.share),
+                                    ),
+                                    IconButton(
+                                      tooltip: isExpanded
+                                          ? "Réduire"
+                                          : "Voir les aliments",
+                                      onPressed: () {
+                                        setState(() {
+                                          expandedIndex =
+                                          isExpanded ? null : index;
+                                        });
+                                      },
+                                      icon: Icon(isExpanded
+                                          ? Icons.expand_less
+                                          : Icons.expand_more),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (isExpanded)
+                                Padding(
+                                  padding:
+                                  const EdgeInsets.only(bottom: 10),
+                                  child:
+                                  _FridgeItemsList(fridgeId: fridge.id),
+                                ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
           ],
         );
       },

@@ -1,13 +1,14 @@
-
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'package:pocket_fridge/pages/calendar_page.dart';
-import 'package:pocket_fridge/pages/create_page.dart';
 import 'package:pocket_fridge/pages/fridge_page.dart';
 import 'package:pocket_fridge/pages/user_page.dart';
 
+import 'forms/CreateObjectForm.dart';
+import 'model/datamodel.dart';
 import 'pages/home_page.dart';
-
-
 
 class MyMaterialPage extends StatefulWidget {
   const MyMaterialPage({super.key});
@@ -19,9 +20,48 @@ class MyMaterialPage extends StatefulWidget {
 class _MyMaterialPageState extends State<MyMaterialPage> {
   int _currentIndex = 0;
 
+  void _showAddFoodDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => CreateObjectForm(
+        objectInstance: FoodItem(
+          id: "",
+          name: "",
+          fridgeId: "", // le formulaire gère la sélection du frigo
+          expirationDate: null,
+        ),
+      ),
+    );
+  }
+
+  void _showAddFridgeDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => CreateObjectForm(
+        objectInstance: Fridge(id: "", name: ""),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(
+      int index, IconData icon, IconData selectedIcon, String label) {
+    final selected = _currentIndex == index;
+    final color = Theme.of(context).colorScheme.primary;
+
+    return Tooltip(
+      message: label,
+      child: IconButton(
+        onPressed: () => setState(() => _currentIndex = index),
+        icon: Icon(selected ? selectedIcon : icon),
+        color: selected ? color : null,
+        iconSize: 26,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    var theme = Theme.of(context);
+    final theme = Theme.of(context);
 
     final backgroundAppBar = theme.colorScheme.secondaryContainer;
     final colorAppBar = theme.colorScheme.secondary;
@@ -56,35 +96,42 @@ class _MyMaterialPageState extends State<MyMaterialPage> {
           style: TextStyle(color: colorAppBar),
         ),
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (int index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        destinations: [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: "Accueil",
+      floatingActionButton: SpeedDial(
+        icon: Icons.add,
+        activeIcon: Icons.close,
+        shape: const CircleBorder(),
+        spacing: 12,
+        children: [
+          SpeedDialChild(
+            child: const Icon(Icons.fastfood),
+            label: "Nouvel aliment",
+            onTap: () => _showAddFoodDialog(context),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.calendar_month_outlined),
-            selectedIcon: Icon(Icons.calendar_month),
-            label: "Calendrier",
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.kitchen_outlined),
-            selectedIcon: Icon(Icons.kitchen),
-            label: "Frigos",
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.account_circle_outlined),
-            selectedIcon: Icon(Icons.account_circle),
-            label: "Compte",
+          SpeedDialChild(
+            child: const Icon(Icons.kitchen),
+            label: "Nouveau frigo",
+            onTap: () => _showAddFridgeDialog(context),
           ),
         ],
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      bottomNavigationBar: BottomAppBar(
+        shape: const CircularNotchedRectangle(),
+        notchMargin: 8,
+        height: 56,
+        padding: EdgeInsets.zero,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildNavItem(0, Icons.home_outlined, Icons.home, "Accueil"),
+            _buildNavItem(1, Icons.calendar_month_outlined,
+                Icons.calendar_month, "Calendrier"),
+            const SizedBox(width: 56),
+            _buildNavItem(2, Icons.kitchen_outlined, Icons.kitchen, "Frigos"),
+            _buildNavItem(3, Icons.account_circle_outlined,
+                Icons.account_circle, "Compte"),
+          ],
+        ),
       ),
     );
   }
