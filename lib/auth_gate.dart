@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:pocket_fridge/pages/login_page.dart';
 
 import 'my_material_app.dart';
+import 'notification_service.dart';
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -17,6 +18,8 @@ class AuthGate extends StatelessWidget {
           }
 
           if (snapshot.hasData) {
+            // Sauvegarder le token FCM dès que l'utilisateur est connecté
+            NotificationService.saveDeviceToken();
             return const MyMaterialPage();
           } else {
             return const LoginPage();
